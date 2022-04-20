@@ -22,6 +22,7 @@ class AppViewModel: ObservableObject {
     @Published private var appLogic = AppLogic()
     
     @Published private(set) var dataServerIsAvailable = true
+    @Published private(set) var saving = false
     
     var cities: [City] {
         appLogic.cities
@@ -52,11 +53,17 @@ class AppViewModel: ObservableObject {
     
     //MARK: - Functions
     
-    //saves data to UserDefaults
-    private func save() {
-        if let data = try? appLogic.toJson() {
-            if let fileManagerURL = AppViewModelConstants.fileManagerURL {
-                try? data.write(to: fileManagerURL)
+    //saves data to FileManager
+    func save() {
+        saving = true
+        DispatchQueue.global().async {[weak self] in
+            if let data = try? self?.appLogic.toJson() {
+                if let fileManagerURL = AppViewModelConstants.fileManagerURL {
+                    try? data.write(to: fileManagerURL)
+                }
+            }
+            DispatchQueue.main.async {
+                self?.saving = false
             }
         }
     }
@@ -93,21 +100,20 @@ class AppViewModel: ObservableObject {
         getCityInfo(name: name)
         dataContext.getData(cityName: name) {[weak self] value, error in
             if let self = self {
-                let newCityArray = self.createNewCityArray(name: name, temperatureData: value)
-                DispatchQueue.main.async {
-                    if let error = error {
-                        if let _ = error as? URLError {
-                            self.dataServerIsAvailable = false
+                if error == nil || value.count > 0 {
+                    let newCityArray = self.createNewCityArray(name: name, temperatureData: value)
+                    DispatchQueue.main.async {
+                        if let error = error {
+                            if let _ = error as? URLError {
+                                self.dataServerIsAvailable = false
+                            }
                         }
-                    }
-                    else {
-                        self.appLogic.cities = newCityArray
-                    }
-                    if let index = self.citiesInfo.firstIndex(where: {$0.cityName == name}) {
-                        self.citiesInfo[index].waitingForData = false
-                    }
-                    if value.count > 0 {
-                        self.save()
+                        else {
+                            self.appLogic.cities = newCityArray
+                        }
+                        if let index = self.citiesInfo.firstIndex(where: {$0.cityName == name}) {
+                            self.citiesInfo[index].waitingForData = false
+                        }
                     }
                 }
             }
@@ -128,16 +134,12 @@ class AppViewModel: ObservableObject {
                     result[index].temperatureData.append(temp)
                 }
             }
-        }
-        for city in result {
-            if let index = result.firstIndex(where: {$0.name == city.name}){
-                result[index].temperatureData.sort(by: {$0.date > $1.date})
-                result[index].getYears()
-                result[index].getDates()
-                result[index].getDatesAndTimes()
-                result[index].getDatasAndAllData()
-                result[index].getDatasWithTimeAndData()
-            }
+            result[index].temperatureData.sort(by: {$0.date > $1.date})
+            result[index].getYears()
+            result[index].getDates()
+            result[index].getDatesAndTimes()
+            result[index].getDatasAndAllData()
+            result[index].getDatasWithTimeAndData()
         }
         return result
     }
@@ -235,7 +237,6 @@ class AppViewModel: ObservableObject {
                 }
             }
         }
-        save()
     }
     
     func removeCity(name: String) {
@@ -243,7 +244,6 @@ class AppViewModel: ObservableObject {
         if let index = citiesInfo.firstIndex(where: {$0.cityName == name}) {
             citiesInfo.remove(at: index)
         }
-        save()
     }
     
     func getCityImage(cityName: String) -> UIImage? {
@@ -324,7 +324,6 @@ class AppViewModel: ObservableObject {
     
     func addTemperature(name: String, date: Date) {
         appLogic.addTemperatureToCity(name: name, date: date)
-        save()
     }
     
     func getAvgTotal(of city: City, in year: Int) -> String {
@@ -337,7 +336,6 @@ class AppViewModel: ObservableObject {
     
     func removeTemperature(cityName: String, indexSet: IndexSet) {
         appLogic.removeTemperatureFromCity(name: cityName, indexSet: indexSet)
-        save()
     }
     
     

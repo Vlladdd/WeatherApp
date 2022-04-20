@@ -39,11 +39,23 @@ struct MainMenuView: View {
     // both tabs
     @ViewBuilder
     private var mainBody: some View {
-        TabView {
-            mainMenuTab
-            settingsTab
+        if !appViewModel.saving {
+            TabView {
+                mainMenuTab
+                settingsTab
+            }
+            .navigationViewStyle(.stack)
         }
-        .navigationViewStyle(.stack)
+        else {
+            VStack {
+                Text("Saving data...\n")
+                ProgressView()
+            }
+            .foregroundColor(MainViewConstants.rowColor)
+            .padding()
+            .progressViewStyle(CircularProgressViewStyle(tint: MainViewConstants.rowColor))
+            .background(MainViewConstants.backgroundForRow.colorInvert())
+        }
     }
     
     //MARK: - First Tab
@@ -122,45 +134,52 @@ struct MainMenuView: View {
             .disabled(!appViewModel.checkCityStatus(name: selectedCity))
         }
         ToolbarItem(placement: .confirmationAction) {
-            Button(action: {
-                //animation when deleting city
-                disabled = true
-                let cityToDelete = selectedCity
-                let indexOfCityToDelete = appViewModel.cities.firstIndex(where: {$0.name == selectedCity})
-                withAnimation(MainViewConstants.animationWhenDelete) {
-                    appViewModel.moveCityWhenDisappear(name: selectedCity)
-                }
-                Timer.scheduledTimer(withTimeInterval: MainViewConstants.delayToChangeSelectedTab, repeats: false, block: {_ in
-                    withAnimation(MainViewConstants.defaultAnimation) {
-                        if indexOfCityToDelete == 0 && appViewModel.cities.count > 1 {
-                            selectedCity = appViewModel.cities[1].name
-                        }
-                        else if indexOfCityToDelete == appViewModel.cities.count - 1 && appViewModel.cities.count > 1 {
-                            selectedCity = appViewModel.cities[appViewModel.cities.count - 2].name
-                        }
-                        else if appViewModel.cities.count > 1 {
-                            if let indexOfCityToDelete = indexOfCityToDelete {
-                                selectedCity = appViewModel.cities[indexOfCityToDelete - 1].name
+            HStack {
+                Button(action: {
+                    appViewModel.save()
+                }, label: {
+                    Text("Save")
+                })
+                Button(action: {
+                    //animation when deleting city
+                    disabled = true
+                    let cityToDelete = selectedCity
+                    let indexOfCityToDelete = appViewModel.cities.firstIndex(where: {$0.name == selectedCity})
+                    withAnimation(MainViewConstants.animationWhenDelete) {
+                        appViewModel.moveCityWhenDisappear(name: selectedCity)
+                    }
+                    Timer.scheduledTimer(withTimeInterval: MainViewConstants.delayToChangeSelectedTab, repeats: false, block: {_ in
+                        withAnimation(MainViewConstants.defaultAnimation) {
+                            if indexOfCityToDelete == 0 && appViewModel.cities.count > 1 {
+                                selectedCity = appViewModel.cities[1].name
+                            }
+                            else if indexOfCityToDelete == appViewModel.cities.count - 1 && appViewModel.cities.count > 1 {
+                                selectedCity = appViewModel.cities[appViewModel.cities.count - 2].name
+                            }
+                            else if appViewModel.cities.count > 1 {
+                                if let indexOfCityToDelete = indexOfCityToDelete {
+                                    selectedCity = appViewModel.cities[indexOfCityToDelete - 1].name
+                                }
+                            }
+                            else {
+                                selectedCity = ""
                             }
                         }
-                        else {
-                            selectedCity = ""
-                        }
-                    }
+                    })
+                    //we need to wait for tab to move before removing city or there will be no animation
+                    //this is not a proper way, because if user close app before animation has finished
+                    //city will not be deleted. Good workaround for that is working with copy of cities,
+                    //but i leave it like this for now.
+                    Timer.scheduledTimer(withTimeInterval: MainViewConstants.delayForDelete, repeats: false, block: {_ in
+                        appViewModel.removeCity(name: cityToDelete)
+                        disabled = false
+                    })
+                }, label: {
+                    Text("Delete")
                 })
-                //we need to wait for tab to move before removing city or there will be no animation
-                //this is not a proper way, because if user close app before animation has finished
-                //city will not be deleted. Good workaround for that is working with copy of cities,
-                //but i leave it like this for now.
-                Timer.scheduledTimer(withTimeInterval: MainViewConstants.delayForDelete, repeats: false, block: {_ in
-                    appViewModel.removeCity(name: cityToDelete)
-                    disabled = false
-                })
-            }, label: {
-                Text("Delete")
-            })
-                .disabled(disabled)
-                .disabled(!appViewModel.checkCityStatus(name: selectedCity))
+            }
+            .disabled(disabled)
+            .disabled(!appViewModel.checkCityStatus(name: selectedCity))
         }
     }
     
