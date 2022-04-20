@@ -9,7 +9,7 @@ import Foundation
 
 //MARK: - Value Format Strategy
 
-struct ValueContext {
+class ValueContext {
 
     private var strategy: ValueStrategy
 
@@ -17,7 +17,7 @@ struct ValueContext {
         self.strategy = strategy
     }
 
-    mutating func update(strategy: ValueStrategy) {
+    func update(strategy: ValueStrategy) {
         self.strategy = strategy
     }
 

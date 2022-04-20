@@ -12,13 +12,12 @@ class AppViewModel: ObservableObject {
     
     //MARK: - Properties
     
-    @Published var citiesInfo = [CityInfo]()
-    //using in CityDayView
-    @Published var cloudsImage: UIImage?
     //current format of value
-    @Published var valueFormat = ValueContext(strategy: MetricStrategy())
+    let valueFormat = ValueContext(strategy: MetricStrategy())
     //current format of temperature data
-    @Published var dataContext = DataContext(strategy: ServerDataStrategy())
+    let dataContext = DataContext(strategy: ServerDataStrategy())
+    
+    @Published var citiesInfo = [CityInfo]()
     
     @Published private var appLogic = AppLogic()
     
@@ -56,7 +55,9 @@ class AppViewModel: ObservableObject {
     //saves data to UserDefaults
     private func save() {
         if let data = try? appLogic.toJson() {
-            UserDefaults.standard.set(data, forKey: AppViewModelConstants.userKey)
+            if let fileManagerURL = AppViewModelConstants.fileManagerURL {
+                try? data.write(to: fileManagerURL)
+            }
         }
     }
     
@@ -90,24 +91,55 @@ class AppViewModel: ObservableObject {
     
     func getCityData(name: String) {
         getCityInfo(name: name)
-        dataContext.getData(cityName: name) {value, error in
-            DispatchQueue.main.sync {[weak self] in
-                if let self = self {
+        dataContext.getData(cityName: name) {[weak self] value, error in
+            if let self = self {
+                let newCityArray = self.createNewCityArray(name: name, temperatureData: value)
+                DispatchQueue.main.async {
                     if let error = error {
                         if let _ = error as? URLError {
                             self.dataServerIsAvailable = false
                         }
                     }
                     else {
-                        self.appLogic.addTemperatureToCity(name: name, temperatureData: value)
+                        self.appLogic.cities = newCityArray
                     }
                     if let index = self.citiesInfo.firstIndex(where: {$0.cityName == name}) {
                         self.citiesInfo[index].waitingForData = false
                     }
-                    self.save()
+                    if value.count > 0 {
+                        self.save()
+                    }
                 }
             }
         }
+    }
+    
+    //add new temperatureData to existed, changing value of existed dates
+    //it was firstly in logic, but, if we have too many data,
+    //unfortunately the loop runs for a long time, which blocks the UI, and i cant make it async in logic
+    func createNewCityArray(name: String, temperatureData: [Temperature]) -> [City] {
+        var result = cities
+        if let index = result.firstIndex(where: {$0.name == name}) {
+            for temp in temperatureData {
+                if let tempIndex = cities[index].temperatureData.firstIndex(where: {$0.date.toStringDateHM == temp.date.toStringDateHM}) {
+                    result[index].temperatureData[tempIndex] = temp
+                }
+                else {
+                    result[index].temperatureData.append(temp)
+                }
+            }
+        }
+        for city in result {
+            if let index = result.firstIndex(where: {$0.name == city.name}){
+                result[index].temperatureData.sort(by: {$0.date > $1.date})
+                result[index].getYears()
+                result[index].getDates()
+                result[index].getDatesAndTimes()
+                result[index].getDatasAndAllData()
+                result[index].getDatasWithTimeAndData()
+            }
+        }
+        return result
     }
     
     
@@ -120,7 +152,7 @@ class AppViewModel: ObservableObject {
         getData(from: url!) { data, response, error in
             guard let data = data, error == nil
             else {
-                DispatchQueue.main.sync() {[weak self] in
+                DispatchQueue.main.async() {[weak self] in
                     if let self = self {
                         if let index = self.citiesInfo.firstIndex(where: {$0.cityName == name}) {
                             self.citiesInfo[index].waitingForCityInfo = false
@@ -129,7 +161,7 @@ class AppViewModel: ObservableObject {
                 }
                 return
             }
-            DispatchQueue.main.sync() {[weak self] in
+            DispatchQueue.main.async() {[weak self] in
                 if let self = self {
                     if let index = self.citiesInfo.firstIndex(where: {$0.cityName == name}) {
                         self.citiesInfo[index].image = UIImage(data: data)
@@ -153,18 +185,17 @@ class AppViewModel: ObservableObject {
     }
     
     //makes weather icon in CityDayView
-    func getCloudsImage(from weatherStatus: String) {
-        cloudsImage = nil
+    func getCloudsImage(from weatherStatus: String, completion: @escaping (UIImage?) -> Void) {
         getData(from: URL(string: "https://openweathermap.org/img/wn/\(weatherStatus)@2x.png")!, completion: { data, response, error in
             guard let data = data, error == nil
             else {
-                self.cloudsImage = nil
+                DispatchQueue.main.async() {
+                    completion(nil)
+                }
                 return
             }
-            DispatchQueue.main.sync() {[weak self] in
-                if let self = self {
-                    self.cloudsImage = UIImage(data: data)
-                }
+            DispatchQueue.main.async() {
+                completion(UIImage(data: data))
             }
         })
     }
@@ -316,7 +347,10 @@ class AppViewModel: ObservableObject {
 
 private struct AppViewModelConstants {
     
+    //key for FileManager
     static let userKey = "UserData"
+    //url for FileManager
+    static let fileManagerURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent(AppViewModelConstants.userKey)
     static let cityStartCoordinate: CGFloat = -1000
     static let cityEndCoordinate: CGFloat = 0
     static let seedLength = 20

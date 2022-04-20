@@ -45,7 +45,7 @@ enum DataType: String, Codable {
     
 }
 
-enum CloudStatus: String, Codable {
+enum CloudStatus: String, Codable, Identifiable {
     
     case sun
     case clouds
@@ -54,6 +54,9 @@ enum CloudStatus: String, Codable {
     case snow
     case mist
     
+    var id: String {
+        return self.rawValue
+    }
 }
 
 enum Month: String, Codable {

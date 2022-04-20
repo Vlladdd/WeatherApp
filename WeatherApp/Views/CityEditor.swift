@@ -128,7 +128,7 @@ struct CityEditor: View {
     private var editCity: some View {
         Menu {
             Picker(selection: $cityName) {
-                ForEach(appViewModel.cities, id: \.name){city in
+                ForEach(appViewModel.cities){city in
                     Text(city.name)
                         .tag(city.name)
                 }

@@ -123,7 +123,7 @@ struct TemperatureEditor: View {
         Section(content: {
             Menu {
                 Picker(selection: $cloudStatus) {
-                    ForEach(cloudStatuses, id: \.self){cloudStatus in
+                    ForEach(cloudStatuses){cloudStatus in
                         Text(cloudStatus.rawValue.firstUppercased)
                             .tag(cloudStatus)
                     }
@@ -152,8 +152,8 @@ struct TemperatureEditor: View {
             ZStack {
                 TempEditorViewConstants.backgroundForRow.frame(maxWidth: .infinity)
                 DatePicker("", selection: $date)
+                    .datePickerStyle(.compact)
                     .padding()
-                    .applyTextColor(TempEditorViewConstants.textColor)
             }
             .frame(maxWidth: TempEditorViewConstants.maxWidthOfSectionContent)
         }, header: {
@@ -174,12 +174,12 @@ struct TemperatureEditor: View {
                 TempEditorViewConstants.backgroundForRow.frame(maxWidth: .infinity)
                 Stepper {
                     Text(value)
+                        .foregroundColor(TempEditorViewConstants.textColor)
                 } onIncrement: {
                     onIncrement()
                 } onDecrement: {
                     onDecrement()
                 }
-                .applyTextColor(TempEditorViewConstants.textColor)
                 .padding()
             }
             .frame(maxWidth: TempEditorViewConstants.maxWidthOfSectionContent)

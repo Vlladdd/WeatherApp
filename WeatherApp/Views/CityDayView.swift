@@ -24,6 +24,9 @@ struct CityDayView: View {
     
     //for animation when values in form are changing
     @State private var offsetX: CGFloat = 0
+    //disables ability to change valueStyle while avgTemperature is being displayed
+    @State private var disabled = false
+    @State var cloudsImage: UIImage?
     
     @Binding var valueStyle: ValueStyle
     
@@ -53,8 +56,11 @@ struct CityDayView: View {
                 Text("Standard").tag(ValueStyle.standard)
                 Text("Imperial").tag(ValueStyle.imperial)
             })
+                .disabled(disabled)
+                .pickerStyle(.menu)
                 .onChange(of: valueStyle, perform: {newValueStyle in
-                    withAnimation {
+                    disabled = true
+                    withAnimation(CityDayViewConstants.defaultAnimation) {
                         switch newValueStyle {
                         case .metric:
                             appViewModel.valueFormat.update(strategy: MetricStrategy())
@@ -65,9 +71,14 @@ struct CityDayView: View {
                         }
                         offsetX = CityDayViewConstants.offsetXForAnimationWhenValuesChanged
                     }
-                    withAnimation(CityDayViewConstants.animationWhenValuesChanged) {
-                        offsetX = 0
-                    }
+                    Timer.scheduledTimer(withTimeInterval: CityDayViewConstants.durationForDefaultAnimation, repeats: false, block: {_ in
+                        withAnimation(CityDayViewConstants.defaultAnimation) {
+                            offsetX = 0
+                        }
+                    })
+                    Timer.scheduledTimer(withTimeInterval: CityDayViewConstants.delayForDisabled, repeats: false, block: {_ in
+                        disabled = false
+                    })
                 })
         }
     }
@@ -79,25 +90,39 @@ struct CityDayView: View {
     private func dataTable() -> some View {
         Form {
             timePickerSection
+            //previously, there was no elses and this was working fine in simulator (iOS 15), but on real device (iOS 14) that was forcing an error,
+            //if there are no value, that the nubmer of sections in Form was changed
             if let temperatureDataInTime = temperatureDataInTime {
                 getSection(name: "Temperature", value: appViewModel.valueFormat.getTemperatureData(value: temperatureDataInTime.value))
                 if let _ = temperatureDataInTime.additionalData?.weather?.first?.icon {
                     getWeatherSection
                 }
-                if let value = temperatureDataInTime.additionalData?.weather?.first?.id {
-                    let cloudStatus = appViewModel.getCloudStatus(from: value)
-                    if let cloudStatus = cloudStatus {
-                        getSection(name: "Clouds", value: cloudStatus.rawValue.firstUppercased)
-                    }
+                else {
+                    getSection(name: "Weather", value: "No value")
+                }
+                if let value = temperatureDataInTime.additionalData?.weather?.first?.id, let cloudStatus = appViewModel.getCloudStatus(from: value) {
+                    getSection(name: "Clouds", value: cloudStatus.rawValue.firstUppercased)
+                }
+                else {
+                    getSection(name: "Clouds", value: "No value")
                 }
                 if let visibility = temperatureDataInTime.additionalData?.visibility {
                     getSection(name: "Visibility", value: appViewModel.valueFormat.getLengthData(value: visibility))
                 }
+                else {
+                    getSection(name: "Visibility", value: "No value")
+                }
                 if let windSpeed = temperatureDataInTime.additionalData?.wind?.speed {
                     getSection(name: "Wind Speed", value: appViewModel.valueFormat.getSpeedData(value: windSpeed))
                 }
+                else {
+                    getSection(name: "Wind Speed", value: "No value")
+                }
                 if let lat = temperatureDataInTime.additionalData?.coord?.lat, let lon = temperatureDataInTime.additionalData?.coord?.lon {
                     getSection(name: "Coordinates", value: "Longtitude: \(lon)\nLatitude: \(lat)")
+                }
+                else {
+                    getSection(name: "Coordinates", value: "No value")
                 }
             }
         }
@@ -130,19 +155,22 @@ struct CityDayView: View {
     @ViewBuilder
     private var timePickerSection: some View {
         Section (content: {
-            Menu {
-                Picker(selection: $time) {
-                    Text("Average").tag("Average")
-                    ForEach(city.getAllTimes(in: temperatureData).sorted(), id: \.self) {time in
-                        Text(time).tag(time)
+            if let date = temperatureData.first?.date.toString, let allTimes = city.getAllTimes(from: date) {
+                Menu {
+                    Picker(selection: $time) {
+                        Text("Average").tag("Average")
+                        ForEach(allTimes, id: \.self) {time in
+                            Text(time).tag(time)
+                        }
+                    } label: {}
+                } label: {
+                    ZStack {
+                        CityDayViewConstants.backgroundForRow
+                        Text(time)
+                            .font(.title2)
                     }
-                } label: {}
-            } label: {
-                ZStack {
-                    CityDayViewConstants.backgroundForRow
-                    Text(time)
-                        .font(.title2)
                 }
+                .disabled(disabled)
             }
         }, header: {
             ZStack {
@@ -155,7 +183,9 @@ struct CityDayView: View {
             .font(.title2)
             .listRowBackground(Color.clear)
             .onChange(of: time, perform: {newTime in
-                withAnimation {
+                disabled = true
+                cloudsImage = nil
+                withAnimation(CityDayViewConstants.defaultAnimation) {
                     if time != "Average" {
                         temperatureDataInTime = city.getData(from: temperatureData.first!.date, and: newTime)
                     }
@@ -168,14 +198,21 @@ struct CityDayView: View {
                     }
                     else {
                         if let weatherStatus = temperatureDataInTime?.additionalData?.weather?.first?.icon {
-                            appViewModel.getCloudsImage(from: weatherStatus)
+                            appViewModel.getCloudsImage(from: weatherStatus) {value in
+                                cloudsImage = value
+                            }
                         }
                     }
                     offsetX = CityDayViewConstants.offsetXForAnimationWhenValuesChanged
                 }
-                withAnimation(CityDayViewConstants.animationWhenValuesChanged) {
-                    offsetX = 0
-                }
+                Timer.scheduledTimer(withTimeInterval: CityDayViewConstants.durationForDefaultAnimation, repeats: false, block: {_ in
+                    withAnimation(CityDayViewConstants.defaultAnimation) {
+                        offsetX = 0
+                    }
+                })
+                Timer.scheduledTimer(withTimeInterval: CityDayViewConstants.delayForDisabled, repeats: false, block: {_ in
+                    disabled = false
+                })
             })
     }
     
@@ -186,7 +223,7 @@ struct CityDayView: View {
                 CityDayViewConstants.backgroundForRow.frame(maxWidth: CityDayViewConstants.maxWidthOfSectionContent)
                 Text(value)
                     .foregroundColor(CityDayViewConstants.textColor)
-                    .animation(.easeInOut)
+                    .animation(CityDayViewConstants.defaultAnimation)
             }
             .offset(x: offsetX, y: 0)
         }, header: {
@@ -212,36 +249,36 @@ struct CityDayView: View {
                         AsyncImage(url: URL(string: "https://openweathermap.org/img/wn/\(weatherStatus)@2x.png")!, content: {image in
                             image
                                 .background(CityDayViewConstants.backgroundForWeather)
-                                .animation(.easeInOut)
+                                .animation(CityDayViewConstants.defaultAnimation)
                         }, placeholder: {
                             ProgressView()
                                 .padding()
                                 .progressViewStyle(CircularProgressViewStyle(tint: CityDayViewConstants.rowColor))
                                 .background(CityDayViewConstants.backgroundForWeather)
-                                .animation(.easeInOut)
                         })
                     }
                     .offset(x: offsetX, y: 0)
                 } else {
                     ZStack {
                         CityDayViewConstants.backgroundForRow.frame(maxWidth: CityDayViewConstants.maxWidthOfSectionContent)
-                        if let cloudsImage = appViewModel.cloudsImage {
+                        if let cloudsImage = cloudsImage {
                             Image(uiImage: cloudsImage)
                                 .background(CityDayViewConstants.backgroundForWeather)
-                                .animation(.easeInOut)
+                                .animation(CityDayViewConstants.defaultAnimation)
                         }
                         else {
                             ProgressView()
                                 .padding()
                                 .progressViewStyle(CircularProgressViewStyle(tint: CityDayViewConstants.rowColor))
                                 .background(CityDayViewConstants.backgroundForWeather)
-                                .animation(.easeInOut)
                         }
                     }
-                    .offset(x: offsetX, y: 0)
                     .onAppear(perform: {
-                        appViewModel.getCloudsImage(from: weatherStatus)
+                        appViewModel.getCloudsImage(from: weatherStatus){value in
+                            cloudsImage = value
+                        }
                     })
+                    .offset(x: offsetX, y: 0)
                 }
             }
         }, header: {
@@ -277,11 +314,12 @@ private struct CityDayViewConstants {
     static let textHeaderColor = Color(UIColor.systemBackground.inverseColor())
     static let cornerRadius: Double = 20
     static let maxWidthOfSectionContent: Double = .infinity
-    static let delayForAnimationWhenValuesChanged = 0.2
-    static let animationWhenValuesChanged = Animation.easeInOut.delay(delayForAnimationWhenValuesChanged)
+    static let delayForDisabled = 1.0
+    static let durationForDefaultAnimation = 0.5
     static let offsetXForAnimationWhenValuesChanged: CGFloat = 30
     static let normalTemperatureMinValue = 5
     static let normalTemperatureMaxValue = 20
+    static let defaultAnimation = Animation.easeInOut(duration: durationForDefaultAnimation)
     
     @ViewBuilder
     static var backgroundForRow: some View {

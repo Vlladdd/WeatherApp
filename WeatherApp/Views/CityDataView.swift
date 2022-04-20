@@ -16,7 +16,7 @@ struct CityDataView: View {
     
     let city: City
     
-    @State private var valueStyle = ValueStyle.metric
+    @Binding var valueStyle: ValueStyle
     @State private var editMode: EditMode = .inactive
     //used to animate list when he is changed
     @State private var listId = 0
@@ -74,7 +74,7 @@ struct CityDataView: View {
         //background is not working in picker
         Menu {
             Picker(selection: $year) {
-                ForEach(city.years.sorted(by: >), id: \.self) {year in
+                ForEach(city.years, id: \.self) {year in
                     Text(String(year)).tag(year)
                 }
             } label: {}
@@ -108,9 +108,8 @@ struct CityDataView: View {
     //otherwise makes city image as background
     @ViewBuilder
     private var background: some View {
-        let temperatureData = city.temperatureData.sorted(by: {$0.date > $1.date})
-        if temperatureData.count > 0 {
-            if let lat = temperatureData.first!.additionalData?.coord?.lat, let lon = temperatureData[0].additionalData?.coord?.lon {
+        if city.temperatureData.count > 0 {
+            if let lat = city.temperatureData.first!.additionalData?.coord?.lat, let lon = city.temperatureData.first!.additionalData?.coord?.lon {
                 makeMapBackground(lat: lat, lon: lon)
             }
             else {
@@ -127,7 +126,7 @@ struct CityDataView: View {
     //links to year data
     @ViewBuilder
     private var yearsData: some View {
-        ForEach(city.years.sorted(by: >), id: \.self) {year in
+        ForEach(city.years, id: \.self) {year in
             if self.year == year {
                 NavigationLink(String(year), destination: {
                     CityYearView(city: city, year: year, valueStyle: $valueStyle)
@@ -139,11 +138,11 @@ struct CityDataView: View {
     //links to day data
     @ViewBuilder
     private var daysData: some View {
-        ForEach(city.dates.sorted(by: >), id: \.self) {date in
+        ForEach(city.dates, id: \.self) {date in
             if date.get(.year) == year && date.get(.month) == month{
-                if let time = city.getAllTimes(in: city.getAllData(from: date)).sorted(by: >).first {
+                if let time = city.getAllTimes(from: date.toString)?.first, let data = city.getAllData(from: date) {
                     NavigationLink(date.toString, destination: {
-                        CityDayView(city: city, temperatureData: city.getAllData(from: date), time: time, valueStyle: $valueStyle)
+                        CityDayView(city: city, temperatureData: data, time: time, valueStyle: $valueStyle)
                     })
                 }
             }
@@ -161,7 +160,7 @@ struct CityDataView: View {
 
 struct CityView_Previews: PreviewProvider {
     static var previews: some View {
-        CityDataView(city: City(name: "Kyiv", id: "Kyiv", type: .small, temperatureData: Temperature.getRandomTemperatureData())).environmentObject(AppViewModel())
+        CityDataView(city: City(name: "Kyiv", id: "Kyiv", type: .small, temperatureData: Temperature.getRandomTemperatureData()), valueStyle: .constant(.metric)).environmentObject(AppViewModel())
     }
 }
 

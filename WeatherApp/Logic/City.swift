@@ -17,52 +17,80 @@ struct City: Identifiable, Codable{
     
     var type: CityType
     var temperatureData: [Temperature] = []
-    
+    //previously, all vars listed below was computed properties, but unfortunatelly, if we have
+    //a lot of data, it takes a long to compute them and blocks the UI.
+    //so, its better to compute them once (e.g. press update button) and use all over the app
     //all available years in temperatureData
-    var years: [Int] {
-        var result = [Int]()
+    var years = [Int]()
+    //all available dates in temperatureData
+    var dates = [Date]()
+    //all available dates with all their times in temperatureData
+    var datesWithTimes = [String:[String]]()
+    //all available temperatureData with different times in date
+    var datesWithData = [String:[Temperature]]()
+    //data in chosen date with chosen time
+    var datesWithTimeAndData = [String:Temperature]()
+    
+    //MARK: - Functions
+    
+    mutating func getYears() {
         for temp in temperatureData {
-            if !result.contains(temp.date.get(.year)){
-                result.append(temp.date.get(.year))
+            if !years.contains(temp.date.get(.year)){
+                years.append(temp.date.get(.year))
             }
         }
-        return result
+        years = years.sorted(by: <)
     }
     
-    //all available dates in temperatureData
-    var dates: [Date] {
-        var result = [Date]()
+    mutating func getDates() {
         for temp in temperatureData {
             let dateComponents = temp.date.get(.year, .month, .day)
             let calendar = Calendar(identifier: .gregorian)
             let date = calendar.date(from: dateComponents)
             if let date = date {
-                result.append(date)
+                dates.append(date)
             }
         }
-        return result.unique
+        dates = dates.unique.sorted(by: <)
     }
     
-    //MARK: - Functions
-    
-    //all available temperatureData with different times in date
-    func  getAllData(from date: Date) -> [Temperature] {
-        var result = [Temperature]()
+    mutating func getDatasAndAllData() {
         for temp in temperatureData {
-            if temp.date.toString == date.toString {
-                result.append(temp)
+            if datesWithData[temp.date.toString] != nil {
+                datesWithData[temp.date.toString]!.append(temp)
+            }
+            else {
+                datesWithData[temp.date.toString] = [temp]
             }
         }
-        return result
     }
     
-    //all available times in date
-    func getAllTimes(in temperatureData: [Temperature]) -> [String] {
-        var result = [String]()
+    mutating func getDatasWithTimeAndData() {
         for temp in temperatureData {
-            result.append(temp.date.toTimeString)
+            datesWithTimeAndData[temp.date.toString + temp.date.toTimeString] = temp
         }
-        return result
+    }
+    
+    mutating func getDatesAndTimes() {
+        for temp in temperatureData {
+            if datesWithTimes[temp.date.toString] != nil {
+                datesWithTimes[temp.date.toString]!.append(temp.date.toTimeString)
+            }
+            else {
+                datesWithTimes[temp.date.toString] = [temp.date.toTimeString]
+            }
+        }
+        for object in datesWithTimes {
+            datesWithTimes[object.key] = object.value.sorted(by: >)
+        }
+    }
+    
+    func  getAllData(from date: Date) -> [Temperature]? {
+        return datesWithData[date.toString]
+    }
+
+    func getAllTimes(from date: String) -> [String]? {
+        return datesWithTimes[date]?.unique
     }
     
     //avg data for day
@@ -125,15 +153,11 @@ struct City: Identifiable, Codable{
         return result
     }
     
-    //data in chosen date with chosen time
     func getData(from date: Date, and time: String) -> Temperature?{
-        for temp in temperatureData {
-            if temp.date.toString + temp.date.toTimeString == date.toString + time{
-                getLog(date: date, value: temp.value)
-                return temp
-            }
+        if let data = datesWithTimeAndData[date.toString + time] {
+            getLog(date: date, value: data.value)
         }
-        return nil
+        return datesWithTimeAndData[date.toString + time]
     }
     
     //average temperature of the year

@@ -39,9 +39,6 @@ struct CityYearView: View {
                 toolbarContent
             })
             .navigationTitle(city.name + " " + String(year))
-            .onAppear {
-                showAvgTemp()
-            }
     }
     
     @ToolbarContentBuilder
@@ -52,8 +49,13 @@ struct CityYearView: View {
                 Text("Standard").tag(ValueStyle.standard)
                 Text("Imperial").tag(ValueStyle.imperial)
             })
+                .pickerStyle(.menu)
                 .onChange(of: valueStyle, perform: {newValueStyle in
-                    withAnimation {
+                    //previously, i was trying to chain many animations with help of delay and this was working good
+                    //in simulator (iOS 15), but unfortunately it was not working on my device (iOS 14), so i had
+                    //to changed to this
+                    disabled = true
+                    withAnimation(CityYearViewConstants.defaultAnimation) {
                         switch newValueStyle {
                         case .metric:
                             appViewModel.valueFormat.update(strategy: MetricStrategy())
@@ -64,10 +66,14 @@ struct CityYearView: View {
                         }
                         offsetX = CityYearViewConstants.offsetXForAnimationWhenValuesChanged
                     }
-                    withAnimation(CityYearViewConstants.animationWhenValuesChanged) {
-                        offsetX = 0
+                    Timer.scheduledTimer(withTimeInterval: CityYearViewConstants.delayForDefaultAnimation, repeats: false, block: {_ in
+                        withAnimation(CityYearViewConstants.defaultAnimation) {
+                            offsetX = 0
+                        }
+                    })
+                    Timer.scheduledTimer(withTimeInterval: CityYearViewConstants.delayForShowAvg, repeats: false, block: {_ in
                         showAvgTemp()
-                    }
+                    })
                 })
                 .disabled(disabled)
         })
@@ -75,13 +81,14 @@ struct CityYearView: View {
     
     //displays averageTemperature then comebacks to all data
     private func showAvgTemp() {
-        disabled = true
-        withAnimation(CityYearViewConstants.animation) {
+        withAnimation(CityYearViewConstants.animationForAvg) {
             showAvg = true
         }
-        withAnimation(CityYearViewConstants.animationForAvg) {
-            showAvg = false
-        }
+        Timer.scheduledTimer(withTimeInterval: CityYearViewConstants.delayToHideAvg, repeats: false, block: {_ in
+            withAnimation(CityYearViewConstants.animationForAvg) {
+                showAvg = false
+            }
+        })
         Timer.scheduledTimer(withTimeInterval: CityYearViewConstants.delayForDisabled, repeats: false, block: {_ in
             disabled = false
         })
@@ -95,6 +102,14 @@ struct CityYearView: View {
         }
         else {
             allData
+                .onAppear {
+                    if !disabled {
+                        disabled = true
+                        Timer.scheduledTimer(withTimeInterval: CityYearViewConstants.delayForShowAvg, repeats: false, block: {_ in
+                            showAvgTemp()
+                        })
+                    }
+                }
         }
     }
     
@@ -135,7 +150,7 @@ struct CityYearView: View {
                 CityYearViewConstants.backgroundForRow.frame(maxWidth: CityYearViewConstants.maxWidthOfSectionContent)
                 Text(value)
                     .foregroundColor(CityYearViewConstants.textColor)
-                    .animation(.easeInOut)
+                    .animation(CityYearViewConstants.defaultAnimation)
             }
             .offset(x: offsetX, y: 0)
         }, header: {
@@ -164,9 +179,6 @@ struct CityYearView_Previews: PreviewProvider {
 
 private struct CityYearViewConstants {
     static let delayForDisabled: Double = 6
-    static let animDur: Double = 2
-    static let animDelay: Double = 1
-    static let animation = Animation.linear(duration: animDur).delay(animDelay)
     static let rowColor = Color(UIColor.systemBackground.inverseColor())
     static let headerColor = Color(UIColor.systemBackground)
     static let rowOpacity = 0.7
@@ -175,12 +187,13 @@ private struct CityYearViewConstants {
     static let textHeaderColor = Color(UIColor.systemBackground.inverseColor())
     static let cornerRadius: Double = 20
     static let maxWidthOfSectionContent: Double = .infinity
-    static let delayForAnimationWhenValuesChanged = 0.2
-    static let animationWhenValuesChanged = Animation.easeInOut.delay(delayForAnimationWhenValuesChanged)
     static let offsetXForAnimationWhenValuesChanged: CGFloat = 30
-    static let animDurForAvg: Double = 2
-    static let animDelayForAvg: Double = 4
-    static let animationForAvg = Animation.easeInOut(duration: animDurForAvg).delay(animDelayForAvg)
+    static let delayForShowAvg = 1.5
+    static let delayForDefaultAnimation = 0.5
+    static let durationForAvgAnimation = 2.0
+    static let delayToHideAvg = 4.0
+    static let defaultAnimation = Animation.easeInOut(duration: delayForDefaultAnimation)
+    static let animationForAvg = Animation.easeInOut(duration: durationForAvgAnimation)
     
     @ViewBuilder
     static var backgroundForRow: some View {

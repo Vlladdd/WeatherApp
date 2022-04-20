@@ -17,8 +17,12 @@ struct AppLogic: Codable {
     //builder
     private let temperatureBuilder = ConcreteTemperatureBuilder()
     
-    //key for UserDefaults
+    //key for FileManager
     static private let userKey = "UserData"
+    
+    //url for FileManager
+    static private let fileManagerURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent(AppLogic.userKey)
+    
     
     enum CodingKeys: String, CodingKey {
         case cities
@@ -27,7 +31,7 @@ struct AppLogic: Codable {
     //MARK: - Inits
     
     init() {
-        if let jsonData = UserDefaults.standard.data(forKey: AppLogic.userKey), let data = try? JSONDecoder().decode(AppLogic.self, from: jsonData) {
+        if let fileManagerURL = AppLogic.fileManagerURL, let jsonData = try? Data(contentsOf: fileManagerURL), let data = try? JSONDecoder().decode(AppLogic.self, from: jsonData) {
             self.cities = data.cities
         }
         else {
@@ -77,7 +81,9 @@ struct AppLogic: Codable {
         temperatureBuilder.produceValue(value: 12)
         addTemperatureToCity(name: "London", date: date!)
         if let data = try? toJson() {
-            UserDefaults.standard.set(data, forKey: AppLogic.userKey)
+            if let fileManagerURL = AppLogic.fileManagerURL {
+                try? data.write(to: fileManagerURL)
+            }
         }
     }
     
@@ -114,21 +120,6 @@ struct AppLogic: Codable {
             }
             else {
                 cities[index].temperatureData.append(temperatureBuilder.retrieveProduct())
-            }
-        }
-        
-    }
-    
-    mutating func addTemperatureToCity(name: String, temperatureData: [Temperature]) {
-        
-        if let index = cities.firstIndex(where: {$0.name == name}) {
-            for temp in temperatureData {
-                if let tempIndex = cities[index].temperatureData.firstIndex(where: {$0.date.toStringDateHM == temp.date.toStringDateHM}) {
-                    cities[index].temperatureData[tempIndex] = temp
-                }
-                else {
-                    cities[index].temperatureData.append(temp)
-                }
             }
         }
         

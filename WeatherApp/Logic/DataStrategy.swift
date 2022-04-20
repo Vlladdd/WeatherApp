@@ -40,12 +40,16 @@ protocol DataStrategy {
 
 class LocalDataStrategy: DataStrategy {
     
+    //key for FileManager
     static private let userKey = "UserData"
+    
+    //url for FileManager
+    static private let fileManagerURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent(LocalDataStrategy.userKey)
     
     func getData(cityName: String, completion: @escaping (([Temperature], Error?) -> Void)) {
         var cities = [City]()
         var result = [Temperature]()
-        if let jsonData = UserDefaults.standard.data(forKey: LocalDataStrategy.userKey), let data = try? JSONDecoder().decode(AppLogic.self, from: jsonData){
+        if let fileManagerURL = LocalDataStrategy.fileManagerURL, let jsonData = try? Data(contentsOf: fileManagerURL), let data = try? JSONDecoder().decode(AppLogic.self, from: jsonData) {
             cities = data.cities
         }
         for city in cities {

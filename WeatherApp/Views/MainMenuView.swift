@@ -20,6 +20,8 @@ struct MainMenuView: View {
     @State private var citySelected = false
     //local or server
     @State private var dataType = DataType.local
+    @State private var valueStyle = ValueStyle.metric
+    @State private var disabled = false
     
     //MARK: - Init
     
@@ -37,25 +39,11 @@ struct MainMenuView: View {
     // both tabs
     @ViewBuilder
     private var mainBody: some View {
-        if #available(iOS 15.0, *) {
-            TabView {
-                mainMenuTab
-                settingsTab
-            }
-            .navigationViewStyle(StackNavigationViewStyle())
-            //sets background of status bar
-            .safeAreaInset(edge: .top, alignment: .center, spacing: 0) {
-                Color.clear
-                    .frame(height: 0)
-                    .background(Color(UIColor.systemBackground).opacity(MainViewConstants.statusBarOpacity))
-            }
-        } else {
-            TabView {
-                mainMenuTab
-                settingsTab
-            }
-            .navigationViewStyle(StackNavigationViewStyle())
+        TabView {
+            mainMenuTab
+            settingsTab
         }
+        .navigationViewStyle(.stack)
     }
     
     //MARK: - First Tab
@@ -130,23 +118,49 @@ struct MainMenuView: View {
                     Text(dataType.rawValue.firstUppercased)
                 })
             }
+            .disabled(disabled)
+            .disabled(!appViewModel.checkCityStatus(name: selectedCity))
         }
         ToolbarItem(placement: .confirmationAction) {
             Button(action: {
                 //animation when deleting city
-                withAnimation(MainViewConstants.defaultAnimation) {
+                disabled = true
+                let cityToDelete = selectedCity
+                let indexOfCityToDelete = appViewModel.cities.firstIndex(where: {$0.name == selectedCity})
+                withAnimation(MainViewConstants.animationWhenDelete) {
                     appViewModel.moveCityWhenDisappear(name: selectedCity)
                 }
+                Timer.scheduledTimer(withTimeInterval: MainViewConstants.delayToChangeSelectedTab, repeats: false, block: {_ in
+                    withAnimation(MainViewConstants.defaultAnimation) {
+                        if indexOfCityToDelete == 0 && appViewModel.cities.count > 1 {
+                            selectedCity = appViewModel.cities[1].name
+                        }
+                        else if indexOfCityToDelete == appViewModel.cities.count - 1 && appViewModel.cities.count > 1 {
+                            selectedCity = appViewModel.cities[appViewModel.cities.count - 2].name
+                        }
+                        else if appViewModel.cities.count > 1 {
+                            if let indexOfCityToDelete = indexOfCityToDelete {
+                                selectedCity = appViewModel.cities[indexOfCityToDelete - 1].name
+                            }
+                        }
+                        else {
+                            selectedCity = ""
+                        }
+                    }
+                })
                 //we need to wait for tab to move before removing city or there will be no animation
                 //this is not a proper way, because if user close app before animation has finished
                 //city will not be deleted. Good workaround for that is working with copy of cities,
                 //but i leave it like this for now.
-                Timer.scheduledTimer(withTimeInterval: MainViewConstants.delayWhenDelete, repeats: false, block: {_ in
-                    appViewModel.removeCity(name: selectedCity)
+                Timer.scheduledTimer(withTimeInterval: MainViewConstants.delayForDelete, repeats: false, block: {_ in
+                    appViewModel.removeCity(name: cityToDelete)
+                    disabled = false
                 })
             }, label: {
                 Text("Delete")
             })
+                .disabled(disabled)
+                .disabled(!appViewModel.checkCityStatus(name: selectedCity))
         }
     }
     
@@ -157,6 +171,7 @@ struct MainMenuView: View {
                 TabView (selection: $selectedCity) {
                     cities(in: size, safeAreaTop: safeAreaTop)
                 }
+                .id(appViewModel.cities.count)
                 .frame(
                     width: geometry.size.width ,
                     height: geometry.size.height
@@ -213,9 +228,8 @@ struct MainMenuView: View {
     @ViewBuilder
     private func getCityLink(city: City, safeAreaTop: CGFloat, size: CGSize) -> some View {
         //getting current temperature data
-        let data = city.temperatureData.sorted(by: {$0.date > $1.date})
-        if data.count > 0 {
-            getCloudStatus(temperatureData: data.first!)
+        if city.temperatureData.count > 0 {
+            getCloudStatus(temperatureData: city.temperatureData.first!)
             //when change device orientation some backgrounds are not loading;
             //this fixes the problem
                 .id(city.name)
@@ -224,9 +238,9 @@ struct MainMenuView: View {
             makeTextBackground(text: "No Cloud Data")
         }
         VStack {
-            if data.count > 0 {
+            if city.temperatureData.count > 0 {
                 HStack {
-                    Text(data.first!.date.toStringDateHM)
+                    Text(city.temperatureData.first!.date.toStringDateHM)
                         .padding([.leading,.trailing])
                         .background(MainViewConstants.backgroundForRow)
                     Spacer()
@@ -235,7 +249,7 @@ struct MainMenuView: View {
             }
             Spacer()
             NavigationLink(destination: {
-                CityDataView(city: city)
+                CityDataView(city: city, valueStyle: $valueStyle)
             }) {
                 Text(city.name)
                     .frame(maxWidth: .infinity)
@@ -355,10 +369,13 @@ private struct MainViewConstants {
     static let statusBarOpacity = 0.5
     static let cornerRadius: Double = 20
     static let paddingForTitle: Double = 50
-    static let delayWhenDelete = 0.2
+    static let delayToChangeSelectedTab = 0.3
+    static let delayForAnimationWhenDelete = 0.5
+    static let delayForDelete = 0.7
     static let durationOfCarouselAnimation = 0.2
     static let carouselAnimation = Animation.easeInOut(duration: durationOfCarouselAnimation)
     static let defaultAnimation = Animation.easeInOut
+    static let animationWhenDelete = Animation.easeInOut(duration: delayForAnimationWhenDelete)
     
     @ViewBuilder
     static var backgroundForRow: some View {

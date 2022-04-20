@@ -25,16 +25,6 @@ extension View {
         }
     }
     
-    //changes color of DatePicker and Stepper
-    @ViewBuilder
-    func applyTextColor(_ color: Color) -> some View {
-        if UITraitCollection.current.userInterfaceStyle == .light {
-            self.colorInvert().colorMultiply(color)
-        } else {
-            self.colorMultiply(color)
-        }
-    }
-    
     //I am using big images as background, but instead of scaleToFit, which makes image small,
     //i just crop it to fit the screen and this looks great. I didnt find a good way to do it
     //on gif images, so for that i am using AnimatedImage instead
@@ -51,14 +41,19 @@ extension View {
         let sourceCGImage = sourceImage.cgImage!
         let croppedCGImage = sourceCGImage.cropping(
             to: cropRect
-        )!
-        let croppedImage = UIImage(
-            cgImage: croppedCGImage,
-            scale: sourceImage.imageRendererFormat.scale,
-            orientation: sourceImage.imageOrientation
         )
-        let image = Image(uiImage: croppedImage)
-        return image
+        if let croppedCGImage = croppedCGImage {
+            let croppedImage = UIImage(
+                cgImage: croppedCGImage,
+                scale: sourceImage.imageRendererFormat.scale,
+                orientation: sourceImage.imageOrientation
+            )
+            let image = Image(uiImage: croppedImage)
+            return image
+        }
+        else {
+            return Image(uiImage: sourceImage)
+        }
     }
     
     func removeStandardColors() {
@@ -71,10 +66,17 @@ extension View {
         }
         UITableView.appearance().backgroundColor = .clear
         UITableViewCell.appearance().backgroundColor = .clear
-        UINavigationBar.appearance().backgroundColor = UIColor.systemBackground.withAlphaComponent(0.5)
         UIPageControl.appearance().backgroundColor = UIColor.systemBackground.withAlphaComponent(0.1)
         UIPageControl.appearance().currentPageIndicatorTintColor = .red
         UIPageControl.appearance().pageIndicatorTintColor = UIColor.systemBackground.inverseColor()
+        UIStepper.appearance().setDecrementImage(UIImage(systemName: "minus"), for: .normal)
+        UIStepper.appearance().setIncrementImage(UIImage(systemName: "plus"), for: .normal)
+        let coloredAppearance = UINavigationBarAppearance()
+        coloredAppearance.configureWithTransparentBackground()
+        coloredAppearance.backgroundColor =  UIColor.systemBackground.withAlphaComponent(0.5)
+        UINavigationBar.appearance().standardAppearance = coloredAppearance
+        UINavigationBar.appearance().compactAppearance = coloredAppearance
+        UINavigationBar.appearance().scrollEdgeAppearance = coloredAppearance
     }
     
     func delayedAnimation(delay: Double = 1.0, animation: Animation = .default) -> some View {
