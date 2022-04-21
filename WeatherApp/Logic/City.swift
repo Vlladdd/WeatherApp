@@ -34,15 +34,15 @@ struct City: Identifiable, Codable{
     //MARK: - Functions
     
     mutating func getYears() {
+        years = []
         for temp in temperatureData {
-            if !years.contains(temp.date.get(.year)){
-                years.append(temp.date.get(.year))
-            }
+            years.append(temp.date.get(.year))
         }
-        years = years.sorted(by: <)
+        years = years.unique.sorted(by: >)
     }
     
     mutating func getDates() {
+        dates = []
         for temp in temperatureData {
             let dateComponents = temp.date.get(.year, .month, .day)
             let calendar = Calendar(identifier: .gregorian)
@@ -55,6 +55,7 @@ struct City: Identifiable, Codable{
     }
     
     mutating func getDatasAndAllData() {
+        datesWithData = [String:[Temperature]]()
         for temp in temperatureData {
             if datesWithData[temp.date.toString] != nil {
                 datesWithData[temp.date.toString]!.append(temp)
@@ -66,12 +67,14 @@ struct City: Identifiable, Codable{
     }
     
     mutating func getDatasWithTimeAndData() {
+        datesWithTimeAndData = [String:Temperature]()
         for temp in temperatureData {
             datesWithTimeAndData[temp.date.toString + temp.date.toTimeString] = temp
         }
     }
     
     mutating func getDatesAndTimes() {
+        datesWithTimes = [String:[String]]()
         for temp in temperatureData {
             if datesWithTimes[temp.date.toString] != nil {
                 datesWithTimes[temp.date.toString]!.append(temp.date.toTimeString)

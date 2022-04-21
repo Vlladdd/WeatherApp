@@ -128,7 +128,6 @@ struct AppLogic: Codable {
     mutating func removeTemperatureFromCity(name: String, indexSet: IndexSet) {
         if let index = cities.firstIndex(where: {$0.name == name}) {
             var datesToRemove = [String]()
-            cities[index].temperatureData.sort(by: {$0.date > $1.date})
             for tempIndex in indexSet {
                 datesToRemove.append(cities[index].temperatureData[tempIndex].date.toString)
             }
@@ -137,8 +136,12 @@ struct AppLogic: Codable {
                     if let tempIndex = cities[index].temperatureData.firstIndex(where: {$0.date == temp.date}) {
                         cities[index].temperatureData.remove(at: tempIndex)
                     }
+                    if let dateIndex = cities[index].dates.firstIndex(where: {$0.toString == temp.date.toString}) {
+                        cities[index].dates.remove(at: dateIndex)
+                    }
                 }
             }
+            cities[index].getYears()
         }
     }
     

@@ -134,7 +134,7 @@ class AppViewModel: ObservableObject {
                     result[index].temperatureData.append(temp)
                 }
             }
-            result[index].temperatureData.sort(by: {$0.date > $1.date})
+            result[index].temperatureData.sort(by: {$0.date < $1.date})
             result[index].getYears()
             result[index].getDates()
             result[index].getDatesAndTimes()
