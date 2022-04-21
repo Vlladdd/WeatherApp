@@ -149,13 +149,9 @@ struct TemperatureEditor: View {
     @ViewBuilder
     private var dateSection: some View {
         Section(content: {
-            ZStack {
-                TempEditorViewConstants.backgroundForRow.frame(maxWidth: .infinity)
-                DatePicker("", selection: $date)
-                    .datePickerStyle(.compact)
-                    .padding()
-            }
-            .frame(maxWidth: TempEditorViewConstants.maxWidthOfSectionContent)
+            // cant change colors of DataPicker ;/
+            DatePicker("", selection: $date)
+                .datePickerStyle(.compact)
         }, header: {
             ZStack {
                 TempEditorViewConstants.headerBackground.frame(maxWidth: .infinity)

@@ -248,7 +248,7 @@ struct MainMenuView: View {
     private func getCityLink(city: City, safeAreaTop: CGFloat, size: CGSize) -> some View {
         //getting current temperature data
         if city.temperatureData.count > 0 {
-            getCloudStatus(temperatureData: city.temperatureData.first!)
+            getCloudStatus(temperatureData: city.temperatureData.last!)
             //when change device orientation some backgrounds are not loading;
             //this fixes the problem
                 .id(city.name)
@@ -259,7 +259,7 @@ struct MainMenuView: View {
         VStack {
             if city.temperatureData.count > 0 {
                 HStack {
-                    Text(city.temperatureData.first!.date.toStringDateHM)
+                    Text(city.temperatureData.last!.date.toStringDateHM)
                         .padding([.leading,.trailing])
                         .background(MainViewConstants.backgroundForRow)
                     Spacer()

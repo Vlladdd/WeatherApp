@@ -324,6 +324,11 @@ class AppViewModel: ObservableObject {
     
     func addTemperature(name: String, date: Date) {
         appLogic.addTemperatureToCity(name: name, date: date)
+        DispatchQueue.global().async {[weak self] in
+            if let self = self {
+                self.getCityData(name: name)
+            }
+        }
     }
     
     func getAvgTotal(of city: City, in year: Int) -> String {
@@ -336,6 +341,11 @@ class AppViewModel: ObservableObject {
     
     func removeTemperature(cityName: String, indexSet: IndexSet) {
         appLogic.removeTemperatureFromCity(name: cityName, indexSet: indexSet)
+        DispatchQueue.global().async {[weak self] in
+            if let self = self {
+                self.getCityData(name: cityName)
+            }
+        }
     }
     
     

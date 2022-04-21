@@ -109,7 +109,7 @@ struct CityDataView: View {
     @ViewBuilder
     private var background: some View {
         if city.temperatureData.count > 0 {
-            if let lat = city.temperatureData.first!.additionalData?.coord?.lat, let lon = city.temperatureData.first!.additionalData?.coord?.lon {
+            if let lat = city.temperatureData.last!.additionalData?.coord?.lat, let lon = city.temperatureData.last!.additionalData?.coord?.lon {
                 makeMapBackground(lat: lat, lon: lon)
             }
             else {
